@@ -24,8 +24,8 @@ public class StrategyController {
     @PutMapping("/active")
     public ResponseEntity<?> setActiveStrategy(@RequestBody Map<String, String> payload) {
         String strategy = payload.get("strategy");
-        if (strategy == null || (!strategy.equals("RULE") && !strategy.equals("AI"))) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid strategy. Must be RULE or AI"));
+        if (strategy == null || (!strategy.equals("RULE_BASED") && !strategy.equals("AI"))) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid strategy. Must be RULE_BASED or AI"));
         }
         routingEngineManager.setActiveStrategy(strategy);
         return ResponseEntity.ok(Map.of("activeStrategy", strategy));

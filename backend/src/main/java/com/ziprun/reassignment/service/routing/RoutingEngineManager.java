@@ -12,7 +12,7 @@ import java.util.Map;
 public class RoutingEngineManager {
 
     private final Map<String, RoutingStrategy> strategies;
-    private volatile String activeStrategyKey = "RULE";
+    private volatile String activeStrategyKey = "RULE_BASED";
 
     @Autowired
     public RoutingEngineManager(Map<String, RoutingStrategy> strategies) {
@@ -35,9 +35,10 @@ public class RoutingEngineManager {
         try {
             return strategy.route(request);
         } catch (Exception e) {
-            // Fallback to RULE if AI fails
-            if (!"RULE".equals(activeStrategyKey)) {
-                return strategies.get("RULE").route(request);
+            org.slf4j.LoggerFactory.getLogger(RoutingEngineManager.class).warn("Strategy {} failed, falling back to RULE_BASED. Error: {}", activeStrategyKey, e.getMessage());
+            // Fallback to RULE_BASED if AI fails
+            if (!"RULE_BASED".equals(activeStrategyKey)) {
+                return strategies.get("RULE_BASED").route(request);
             }
             throw e;
         }

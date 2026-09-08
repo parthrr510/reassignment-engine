@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
@@ -95,13 +96,13 @@ public class ReassignmentEngineTests {
 
     @Test
     void testDuplicateOfflineEvent() {
-        agentService.markAgentOffline("AGT-001", "Bike broken");
-        
-        Exception e = assertThrows(IllegalArgumentException.class, () -> {
-            agentService.markAgentOffline("AGT-001", "Still broken");
+        Agent agent1 = agentRepository.findById("AGT-001").orElseThrow();
+        agentService.markAgentOffline(agent1.getId(), "Bike broken");
+
+        // Should return gracefully without throwing
+        assertDoesNotThrow(() -> {
+            agentService.markAgentOffline(agent1.getId(), "Still broken");
         });
-        
-        assertThat(e.getMessage()).isEqualTo("Agent is already offline");
     }
 
     @Test

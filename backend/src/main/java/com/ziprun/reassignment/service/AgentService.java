@@ -23,7 +23,7 @@ public class AgentService {
                 .orElseThrow(() -> new IllegalArgumentException("Agent not found"));
 
         if (agent.getStatus() == AgentStatus.OFFLINE) {
-            throw new IllegalArgumentException("Agent is already offline");
+            return agent;
         }
 
         agent.setStatus(AgentStatus.OFFLINE);

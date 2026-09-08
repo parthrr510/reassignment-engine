@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.Comparator;
 import java.util.Optional;
 
-@Component("RULE")
+@Component("RULE_BASED")
 public class RuleBasedRoutingStrategy implements RoutingStrategy {
 
     @Override

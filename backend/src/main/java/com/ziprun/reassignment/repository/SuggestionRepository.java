@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface SuggestionRepository extends JpaRepository<ReassignmentSuggestion, String> {
     List<ReassignmentSuggestion> findByStatus(SuggestionStatus status);
+    boolean existsByOrderIdAndStatus(String orderId, SuggestionStatus status);
 }

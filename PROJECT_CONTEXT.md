@@ -1,101 +1,64 @@
-# AI Reassignment Engine - Project Context
+# AI Reassignment Engine - Final Project Context
 
-## 1. Problem
-ZipRun's delivery orders are manually assigned to agents at the beginning of a shift. When an agent becomes unexpectedly unavailable (e.g., sickness, breakdown) mid-shift, the current process requires an operations manager to manually detect the issue, find affected orders, check other agents' capacities, and reassign them. This manual process is slow, heavily dependent on human attention, and prone to silent failures.
+## 1. Final Implemented Features
+- **Automatic Offline Detection**: Idempotent agent offline API triggers reassignment loop.
+- **Reactive Re-planning**: Identifies affected active orders and safely generates assignment recommendations.
+- **Strategy Engine**: Supports dynamic runtime switching between `RULE_BASED` and `AI` strategies via API.
+- **AI Advisor**: Integrates with Gemini (`gemini-3.6-flash`) for intelligent recommendations with confidence scores and reasoning.
+- **Approval Workflow**: Suggestions are persisted and can be Approved/Rejected, accurately mutating agent workload and order state.
+- **Safe Fallback**: Transparently falls back to rule-based logic if AI fails or capacity is reached.
 
-## 2. Goal
-Build a reactive reassignment engine that automatically detects when an agent goes offline, identifies their affected orders, leverages the Gemini API to recommend the most suitable replacement agent, and queues this recommendation for operations manager approval.
+## 2. Final Architecture Summary
+- **Backend**: Spring Boot 3 monolithic application using Spring Web, Spring Data JPA, and H2 in-memory DB. 
+- **RoutingEngineManager**: Central strategy executor managing `RuleBasedRoutingStrategy` and `AIRoutingStrategy`.
+- **LLMGateway**: Simple, dependency-free `RestClient`-based HTTP client for direct Gemini communication.
+- **Event Flow**: Synchronous reactive pipeline triggering on `AgentService.markAgentOffline` -> `ReassignmentService`.
+- **Frontend**: React 18 SPA interacting with standard REST JSON endpoints.
 
-## 3. Scope
-- Reactive reassignment loop triggered when an agent becomes unavailable.
-- Pluggable routing engine with runtime switching between Rule-based and AI-based strategies.
-- AI advisor generating recommendations (agent + confidence + explanation) using order details, agent roster, and situation context.
-- Minimal React operations UI to view, approve, or reject suggestions.
+## 3. Final API Summary
+- `GET /api/agents` - List all agents and their active capacities.
+- `PUT /api/agents/{id}/offline` - Mark an agent offline (Triggers Reassignment).
+- `GET /api/suggestions/pending` - Fetch all actionable suggestions.
+- `POST /api/suggestions/{id}/approve` - Approve a suggestion, reassign order, update agent loads.
+- `POST /api/suggestions/{id}/reject` - Reject a suggestion.
+- `GET /api/strategy/active` - Get the current routing strategy.
+- `PUT /api/strategy/active` - Update the strategy (`{"strategy": "AI"}`).
 
-## 4. Explicitly Out-of-Scope Functionality
-- Full dispatch system capabilities.
-- Order creation workflows.
-- Geographical zone management.
-- SLA dashboards.
-- Complex user authentication and authorization.
+## 4. React UI Summary
+- **Dashboard**: Displays a real-time list of Pending Suggestions alongside available Agents.
+- **Actions**: Includes "Approve" and "Reject" buttons for suggestions.
+- **Interaction**: Relies on API endpoints to fetch data and trigger state changes. Currently optimized for manual polling/refresh during demo.
 
-## 5. Functional Requirements
-- **Status Monitoring**: Automatically detect when an agent goes offline/unavailable.
-- **Affected Order Identification**: Find all active orders assigned to the offline agent.
-- **Agentic Re-planning**: Trigger the active routing strategy automatically to find a new agent for the affected orders without manual operator intervention.
-- **AI Recommendation**: Use the Gemini API to recommend a replacement agent, along with a confidence score and a plain-English explanation.
-- **Ops Review**: Queue suggestions and display them in a minimal React operations UI.
-- **Approval Workflow**: Allow ops to approve or reject reassignment suggestions.
+## 5. Tests Passing
+- `AutomaticReassignmentTest` (E2E Integration Test)
+  - Successfully simulates agent going offline, order mapping, suggestion creation, and strategy enforcement.
+- Unit tests for domain models, validation logic, and isolated service logic (where applicable).
 
-## 6. Non-Functional Requirements
-- **Speed & Simplicity**: Optimized for a 2.5-hour solo hackathon (prioritizing working MVP over production completeness).
-- **Extensibility**: Clean domain model that anticipates future extensions without structural rework.
-- **Runtime Flexibility**: Switch routing strategies (Rule vs. AI) dynamically without restarting the application.
+## 6. Known Limitations
+- **Synchronous AI Processing**: The `markAgentOffline` API call blocks synchronously while waiting for the LLM. In production, this should be async or event-driven.
+- **Polling UI**: The frontend does not use WebSockets/SSE for live updates, requiring manual or timer-based refreshes.
+- **Security**: Hardcoded DB logic; no auth/authorization built-in yet.
 
-## 7. Domain Entities
-- **Agent**: `id`, `name`, `status`, `active_order_count`.
-- **Order**: `id`, `description`, `assigned_agent_id`, `status`.
-- **ReassignmentSuggestion**: `id`, `order_id`, `proposed_agent_id`, `confidence_score`, `reasoning`, `status`.
+## 7. AI Failure/Fallback Behavior
+- If `AIRoutingStrategy` throws an `AIAdvisorException` (e.g., API timeout, invalid format, missing model, quota exceeded), the `RoutingEngineManager` catches the exception.
+- It logs a clear `WARN` message.
+- It immediately falls back to executing the `RULE_BASED` strategy, guaranteeing the operations team still receives a deterministic suggestion without system crash.
 
-## 8. State Machines
-- **Agent State**: `AVAILABLE` <-> `BUSY` -> `OFFLINE`
-- **Order State**: `UNASSIGNED` -> `ASSIGNED` -> `COMPLETED`
-- **Suggestion State**: `PENDING` -> `APPROVED` | `REJECTED`
+## 8. Important Implementation Decisions
+- **No Kafka/Brokers**: Kept the architecture strictly bounded to Spring synchronous events/transactions to minimize overhead for the hackathon.
+- **API Key Security**: Moved the LLM key into a local-only `.gitignore` file (`application-secret.properties`).
+- **REST vs SDK**: Chose `RestClient` for direct Gemini calls to maintain explicit control over prompt parsing and JSON safety without abstract frameworks (like Spring AI).
 
-## 9. Major Features
-- Pluggable routing interface.
-- Rule-based routing implementation (fallback).
-- AI-powered routing implementation via Gemini API.
-- Runtime strategy toggle without restart.
-- Automated replanning loop triggered by agent status updates.
-- Pending Suggestions Dashboard (React Frontend).
+## 9. Remaining Risks
+- **Race Conditions**: If two operators try to approve overlapping suggestions, the system currently lacks optimistic locking (`@Version`) on `Agent` capacity.
+- **LLM Hallucination**: AI might provide highly confident reasoning for sub-optimal agent assignment if prompt bounds aren't continually refined.
 
-## 10. AI Responsibilities
-- Analyze the affected order, available agent roster, and contextual situation.
-- Return a structured recommendation containing:
-  - Recommended agent ID
-  - Confidence score (0-100)
-  - Plain-English explanation for the choice
-
-## 11. Architecture Principles
-- Keep the problem statement as the center of the project; do not invent large features outside the reassignment loop.
-- Monolithic Spring Boot backend for simplicity and speed.
-- In-memory data management (H2) for rapid iteration.
-- Strategy Pattern for the routing engine to enable seamless runtime switching.
-
-## 12. Tech Stack
-- **Backend**: Spring Boot 3.x, Java 17+
-- **Frontend**: React 18
-- **Primary LLM**: Gemini API
-- **Database**: H2 (In-memory)
-
-## 13. MVP
-A working flow where:
-1. An agent is marked as offline/unavailable.
-2. The system automatically identifies their active orders.
-3. The active strategy (AI or Rule) recommends a replacement and generates reasoning.
-4. The React UI displays the queued suggestion.
-5. The Ops user approves the suggestion, reassigning the order.
-
-## 14. Development Milestones for a 2.5-Hour Hackathon
-1. **Min 0-30**: Project setup, Domain Model, State Machines, Repository layer, Seed Data.
-2. **Min 30-60**: Rule-based Routing Strategy, Agent offline detection, Affected orders identification.
-3. **Min 60-90**: Gemini API Integration, AI Routing Strategy implementation.
-4. **Min 90-120**: Runtime Strategy Toggle, Minimal React UI for suggestions (Approve/Reject).
-5. **Min 120-150**: End-to-end testing, refinement, demo recording.
-
-## 15. Future Extensions
-- Full dispatch capabilities.
-- Order creation workflows.
-- Geographical zone management.
-- SLA tracking.
-
-## 16. Current Status
-- **Phase**: Planning
-- **Code**: Not started
-- **Next Step**: Bootstrap Spring Boot backend and React frontend.
-
-## 17. Important Design Decisions
-- **Polling vs. WebSockets**: The frontend will poll for pending suggestions to save time, given the 2.5-hour constraint.
-- **LLM Gateway**: Using direct HTTP client calls for Gemini instead of heavyweight frameworks (Spring AI) to ensure simplicity and avoid abstraction leaks.
-- **Enums for State Machines**: Using simple enums to cleanly define and manage state transitions for Agents, Orders, and Suggestions, ensuring robust state management without over-engineering.
+## 10. Exact Demo Flow
+1. **Setup Secrets**: Ensure `backend/application-secret.properties` contains `llm.api-key=YOUR_KEY`.
+2. **Start Apps**: Run backend (`./mvnw spring-boot:run`) and frontend (`npm start`).
+3. **Trigger Rule-Based**: With default `RULE_BASED` strategy active, hit `PUT /api/agents/AGT-005/offline` with `{"reason": "Flat tire"}`. 
+4. **View Suggestions**: Check the UI/API for new rule-based suggestions with generic deterministic reasoning.
+5. **Switch to AI**: Run `PUT /api/strategy/active` sending `{"strategy": "AI"}`.
+6. **Trigger AI Reassignment**: Mark `AGT-001` offline with `PUT /api/agents/AGT-001/offline`.
+7. **View AI Output**: Notice the newly generated suggestion with a rich LLM-generated `reasoning` text and specific `confidenceScore`.
+8. **Approve**: Post to `POST /api/suggestions/{id}/approve` and verify the new agent's `activeOrderCount` goes up.

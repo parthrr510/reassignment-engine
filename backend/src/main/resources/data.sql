@@ -2,7 +2,7 @@
 INSERT INTO agents (id, name, active_order_count, status) VALUES
 ('AGT-001', 'Priya Sharma', 2, 'BUSY'),
 ('AGT-002', 'Rahul Verma', 0, 'AVAILABLE'),
-('AGT-003', 'Ananya Iyer', 1, 'BUSY'),
+('AGT-003', 'Ananya Iyer', 3, 'BUSY'),
 ('AGT-004', 'Kiran Nair', 0, 'AVAILABLE'),
 ('AGT-005', 'Deepak Mehta', 3, 'BUSY');
 
